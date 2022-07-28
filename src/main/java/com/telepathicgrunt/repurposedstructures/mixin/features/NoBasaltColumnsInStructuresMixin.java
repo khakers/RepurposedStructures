@@ -18,9 +18,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Mixin(BasaltColumnsFeature.class)
 public class NoBasaltColumnsInStructuresMixin {
+
+    private static final AtomicLong timeSinceLastLog = new AtomicLong(0L);
+    private static final AtomicInteger count = new AtomicInteger();
 
     @Inject(
             method = "canPlaceAt(Lnet/minecraft/world/level/LevelAccessor;ILnet/minecraft/core/BlockPos$MutableBlockPos;)Z",
@@ -34,7 +39,12 @@ public class NoBasaltColumnsInStructuresMixin {
 
         SectionPos sectionPos = SectionPos.of(mutableBlockPos);
         if (!levelAccessor.getChunk(sectionPos.x(), sectionPos.z()).getStatus().isOrAfter(ChunkStatus.STRUCTURE_REFERENCES)) {
-            RepurposedStructures.LOGGER.warn("Repurposed Structures: Detected a mod with a broken basalt columns configuredfeature that is trying to place blocks outside the 3x3 safe chunk area for features. Find the broken mod and report to them to fix the placement of their basalt columns feature.");
+            if (System.nanoTime() - timeSinceLastLog.get() >= 5000000000L) {
+                timeSinceLastLog.set(System.nanoTime());
+                RepurposedStructures.LOGGER.warn("Repurposed Structures: Detected a mod with a broken basalt columns configuredfeature that is trying to place blocks outside the 3x3 safe chunk area for features. Find the broken mod and report to them to fix the placement of their basalt columns feature. (occured {} times in last 5 seconds)", count.getAndSet(0));
+            } else {
+                count.incrementAndGet();
+            }
             return;
         }
 
